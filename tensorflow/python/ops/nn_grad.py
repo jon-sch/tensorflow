@@ -360,6 +360,16 @@ def _MaxPoolGrad(op, grad):
                                    padding=op.get_attr("padding"),
                                    data_format=op.get_attr("data_format"))
 
+@ops.RegisterGradient("MaxUnpool")
+def _MaxUnpoolGrad(op, grad):
+  return gen_nn_ops._max_unpool_grad(ops.inputs[0], # original input
+                                     grad,
+                                     ops.inputs[2], # argmax
+                                     ops.get_attr("ksize"),
+                                     ops.get_attr("strides"),
+                                     padding=op.get_attr("padding"),
+                                     data_format=op.get_attr("data_format"))
+
 
 @ops.RegisterGradient("BatchNormWithGlobalNormalization")
 def _BatchNormWithGlobalNormalizationGrad(op, grad):
