@@ -683,15 +683,17 @@ def max_unpool(value, argmax_value, argmax, ksize, strides, padding, data_format
 
 @ops.RegisterShape("MaxUnpool")
 def _MaxUnpoolShape(op):
-  """Shape function for MaxUnpool op.""" # compare to _MaxPoolGradShape
-  orig_input_shape = op.inputs[0].get_shape().with_rank(4)
-  return [orig_input_shape]
+  """Shape function for MaxUnpool op."""
+  # input 2 is the input of the corresponding maxpooling
+  maxpool_input_shape = op.inputs[1].get_shape().with_rank(4)
+  return [maxpool_input_shape]
 
 @ops.RegisterShape("MaxUnpoolGrad")
 def _MaxUnpoolGradShape(op):
   """Shape function for MaxUnpoolGrad op."""
-  return common_shapes.max_pool_shape(op) # compare to _MaxPoolWithArgMaxShape
-
+  # input 1 is the actual input of the maxunpooling which is the same in which the gradient results
+  maxunpool_input_shape = op.inputs[0].get_shape().with_rank(4)
+  return [maxunpool_input_shape]
 
 
 
