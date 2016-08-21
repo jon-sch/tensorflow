@@ -628,10 +628,9 @@ class MaxPoolingNoMaskOp<GPUDevice, T> : public OpKernel {
 
 
 
-template <typename T>
-class MaxUnpoolingOp<GPUDevice, T> : public OpKernel {
+template <typename Device, typename T>
+class MaxUnpoolingOp : public OpKernel {
  public:
-  typedef GPUDevice Device;
   explicit MaxUnpoolingOp(OpKernelConstruction* context)
       : OpKernel(context) {
     string data_format;
@@ -675,8 +674,8 @@ class MaxUnpoolingOp<GPUDevice, T> : public OpKernel {
     //  return;
     //}
     
-    OP_REQUIRES_OK(context, data_format_ == FORMAT_NHWC,
-                   errors::InvalidArgument("Only supporting NHWC format."));
+    OP_REQUIRES(context, data_format_ == FORMAT_NHWC,
+                errors::InvalidArgument("Only supporting NHWC format."));
     
     TensorShape out_shape({params.tensor_in_batch, params.tensor_in_rows,
                            params.tensor_in_cols, params.depth});
@@ -684,8 +683,8 @@ class MaxUnpoolingOp<GPUDevice, T> : public OpKernel {
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 
-    LaunchMaxPoolingGradWithArgmax<Device, T>::launch(context, params, tensor_in,
-                                                      argmax, output);
+    LaunchMaxPoolingGradWithArgmax<Device, T>::launch(context, params,
+                                                      tensor_in, tensor_argmax, output);
   }
 
  private:
@@ -693,13 +692,15 @@ class MaxUnpoolingOp<GPUDevice, T> : public OpKernel {
   std::vector<int32> stride_;
   Padding padding_;
   TensorFormat data_format_;
-}
+};
 
 
-template <typename T>
-class MaxUnpoolingGradOp<GPUDevice, T> : public OpKernel {
+template <typename Device, typename T>
+struct LaunchMaxUnpoolingGrad;
+
+template <typename Device, typename T>
+class MaxUnpoolingGradOp : public OpKernel {
  public:
-  typedef GPUDevice Device;
   explicit MaxUnpoolingGradOp(OpKernelConstruction* context)
       : OpKernel(context) {
     string data_format;
@@ -743,8 +744,8 @@ class MaxUnpoolingGradOp<GPUDevice, T> : public OpKernel {
     //  return;
     //}
     
-    OP_REQUIRES_OK(context, data_format_ == FORMAT_NHWC,
-                   errors::InvalidArgument("Only supporting NHWC format."));
+    OP_REQUIRES(context, data_format_ == FORMAT_NHWC,
+                errors::InvalidArgument("Only supporting NHWC format."));
     
     TensorShape out_shape =
         ShapeFromFormat(data_format_, params.tensor_in_batch, params.out_height,
@@ -755,7 +756,7 @@ class MaxUnpoolingGradOp<GPUDevice, T> : public OpKernel {
     
     LaunchMaxUnpoolingGrad<Device, T>::launch(context, params, grad_in,
                                               tensor_argmax, grad_out);
-    // Could not reuse LaunchMaxPoolingNoMask here, because we, need to
+    // Could not reuse LaunchMaxPoolingNoMask here, because we need to
     // pool according to the argmax's not the magnitudes of the gradient
   }
 
@@ -764,10 +765,7 @@ class MaxUnpoolingGradOp<GPUDevice, T> : public OpKernel {
   std::vector<int32> stride_;
   Padding padding_;
   TensorFormat data_format_;
-}
-
-
-
+};
 
 
 
@@ -866,13 +864,16 @@ REGISTER_KERNEL_BUILDER(
 template <typename T>
 struct LaunchMaxUnpoolingGrad<Eigen::GpuDevice, T> {
   static void launch(OpKernelContext* context, const PoolParameters& params,
-                     const Tensor& grad_in, const Tensor& argmax,
+                     const Tensor& grad_in, const Tensor& mask,
                      Tensor* grad_out) {
     
-    bool status = MaskedPoolForward(
+    bool status = MaskPoolForward(
         grad_in.flat<T>().data(), params.tensor_in_batch, params.tensor_in_rows,
         params.tensor_in_cols, params.depth, params.window_rows, params.window_cols,
-        grad_out->flat<T>().data(), context->eigen_gpu_device());
+        grad_out->flat<T>().data(), mask.flat<int64>().data(), context->eigen_gpu_device());
+        // DEBUG: has the mask to be flattend?
+        // DEBUG: flat<int64> ok?
+        
     
     if (!status) {
       context->SetStatus(
@@ -881,29 +882,7 @@ struct LaunchMaxUnpoolingGrad<Eigen::GpuDevice, T> {
   }  
 };
 
-> {
-  static void launch(OpKernelContext* context, const PoolParameters& params,
-                     const Tensor& grad_in, const Tensor& argmax,
-                     Tensor* grad_out) {
-    const int input_size = params.tensor_in_batch * params.tensor_in_rows *
-                           params.tensor_in_cols * params.depth;
-    const int output_size = params.tensor_in_batch * params.out_height *
-                            params.out_width * params.depth;
-    const int top_offset = params.out_height * params.out_width * params.depth;
-    const int bottom_offset =
-        params.tensor_in_rows * params.tensor_in_cols * params.depth;
-    bool status = MaxPoolBackwardWithArgmax(
-        output_size, input_size, grad_in.flat<T>().data(),
-        reinterpret_cast<const int64*>(argmax.flat<int64>().data()), top_offset,
-        bottom_offset, grad_out->flat<T>().data(), context->eigen_gpu_device());
-    if (!status) {
-      context->SetStatus(
-          errors::Internal("Failed launching MaxPoolForwardWithArgmax"));
-    }
-  }
-};
-
-// correct? what s about the the other tensors given to the OP?
+// DEBUG: Everything covered? Unpooling needs argmax input, UnpoolingGrad needs actual input data? (check other ops and python implementation)
 
 REGISTER_KERNEL_BUILDER(
     Name("MaxUnpool")
