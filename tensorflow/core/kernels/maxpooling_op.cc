@@ -871,8 +871,6 @@ struct LaunchMaxUnpoolingGrad<Eigen::GpuDevice, T> {
         grad_in.flat<T>().data(), params.tensor_in_batch, params.tensor_in_rows,
         params.tensor_in_cols, params.depth, params.window_rows, params.window_cols,
         grad_out->flat<T>().data(), mask.flat<int64>().data(), context->eigen_gpu_device());
-        // DEBUG: has the mask to be flattend?
-        // DEBUG: flat<int64> ok?
         
     
     if (!status) {
@@ -881,8 +879,6 @@ struct LaunchMaxUnpoolingGrad<Eigen::GpuDevice, T> {
     }
   }  
 };
-
-// DEBUG: Everything covered? Unpooling needs argmax input, UnpoolingGrad needs actual input data? (check other ops and python implementation)
 
 REGISTER_KERNEL_BUILDER(
     Name("MaxUnpool")

@@ -145,7 +145,7 @@ __global__ void PoolForwardWithMask(
     n /= pooled_height;
     
     const dtype* bottom_data_n = bottom_data + n * height * width * channels;    
-    top_data[index] = bottom_data_n[mask[index]]; // DEBUG: race condition?
+    top_data[index] = bottom_data_n[mask[index]];
   }
 }
 
