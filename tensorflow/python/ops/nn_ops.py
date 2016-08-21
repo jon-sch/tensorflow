@@ -665,49 +665,34 @@ def max_pool(value, ksize, strides, padding, data_format="NHWC", name=None):
                                 name=name)
 
 
+def max_unpool(value, argmax_value, argmax, ksize, strides, padding, data_format="NHWC", name=None):
+    
+    with ops.op_scope([value, argmax_value, argmax], name, "MaxUnpool") as name:
+        value = ops.convert_to_tensor(value, name="input")
+        argmax_value = ops.convert_to_tensor(value, name="argmax_in")
+        argmax = ops.convert_to_tensor(value, name="argmax")
+        return gen_nn_ops._max_unpool(value,
+                                      argmax_value,
+                                      argmax,
+                                      ksize=ksize,
+                                      strides=strides,
+                                      padding=padding,
+                                      data_format=data_format,
+                                      name=name)
+
+
 @ops.RegisterShape("MaxUnpool")
 def _MaxUnpoolShape(op):
-  """Shape function for MaxUnpool op."""
-  input_shape = tensor_util.constant_value(op.inputs[0])
-  return [tensor_shape.TensorShape(input_shape).with_rank(4)]
+  """Shape function for MaxUnpool op.""" # compare to _MaxPoolGradShape
+  orig_input_shape = op.inputs[0].get_shape().with_rank(4)
+  return [orig_input_shape]
 
 @ops.RegisterShape("MaxUnpoolGrad")
 def _MaxUnpoolGradShape(op):
   """Shape function for MaxUnpoolGrad op."""
-  input_shape = tensor_util.constant_value(op.inputs[0])
-  return [tensor_shape.TensorShape(input_shape).with_rank(4)]
+  return common_shapes.max_pool_shape(op) # compare to _MaxPoolWithArgMaxShape
 
 
-#~ def max_unpool(value, argmax_in, argmax, ksize, strides, padding, data_format="NHWC", name=None):
-  #~ """Performs the max pooling on the input.
-#~ 
-  #~ Args:
-    #~ value: A 4-D `Tensor` with shape `[batch, height, width, channels]` and
-      #~ type `tf.float32`.
-    #~ argmax_in: A 4-D `Tensor` with shape `[batch, height, width, channels]` and
-      #~ type `tf.float32`. The input of the corresponding maxpooling operation.
-    #~ argmax: A 4-D `Tensor` with shape `[batch, height, width, channels]` and
-      #~ type `tf.float32`. The argmax's of the corresponding maxpooling operation.
-    #~ ksize: A list of ints that has length >= 4.  The size of the window for
-      #~ each dimension of the input tensor.
-    #~ strides: A list of ints that has length >= 4.  The stride of the sliding
-      #~ window for each dimension of the input tensor.
-    #~ padding: A string, either `'VALID'` or `'SAME'`. The padding algorithm.
-      #~ See the [comment here](https://www.tensorflow.org/api_docs/python/nn.html#convolution)
-    #~ data_format: A string. 'NHWC' and 'NCHW' are supported.
-    #~ name: Optional name for the operation.
-#~ 
-  #~ Returns:
-    #~ A `Tensor` with type `tf.float32`.  The max pooled output tensor.
-  #~ """
-  #~ with ops.op_scope([value], name, "MaxUnpool") as name:
-    #~ value = ops.convert_to_tensor(value, name="input")
-    #~ return gen_nn_ops._max_unpool(value, # how to get the other inputs?
-                                #~ ksize=ksize,
-                                #~ strides=strides,
-                                #~ padding=padding,
-                                #~ data_format=data_format,
-                                #~ name=name)
 
 
 ops.RegisterShape("Relu")(common_shapes.unchanged_shape)
