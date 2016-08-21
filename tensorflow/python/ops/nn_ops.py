@@ -669,8 +669,8 @@ def max_unpool(value, argmax_value, argmax, ksize, strides, padding, data_format
     
     with ops.op_scope([value, argmax_value, argmax], name, "MaxUnpool") as name:
         value = ops.convert_to_tensor(value, name="input")
-        argmax_value = ops.convert_to_tensor(value, name="argmax_in")
-        argmax = ops.convert_to_tensor(value, name="argmax")
+        argmax_value = ops.convert_to_tensor(argmax_value, name="argmax_in",)
+        argmax = ops.convert_to_tensor(argmax, name="argmax")#, dtype=dtypes.int64)
         return gen_nn_ops._max_unpool(value,
                                       argmax_value,
                                       argmax,
