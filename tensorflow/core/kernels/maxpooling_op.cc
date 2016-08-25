@@ -661,7 +661,7 @@ class MaxUnpoolingOp : public OpKernel {
      * 
      * tensor_in: actual data
      * tensor_argmax_in: data which caused the argmax (of the corresponding
-     *   MaxPoolingWithGrad operation), needed to recover shape
+     *   MaxPoolingWithArgmax operation), needed/used to recover shape
      * argmax: the output of the corresponding MaxPoolingWithGradMax operation
      */
     const Tensor& tensor_in = context->input(0);
@@ -730,16 +730,22 @@ class MaxUnpoolingGradOp : public OpKernel {
      * We propagate values down according to the argmax
      * (argmax w.r.t. to the values *not* w.r.t. gradients themselves)
      * 
-     * grad_in: input gradient
+     * grad_in:   input gradient
      * tensor_in: actual data, needed to recover shape
-     * argmax: the output of the corresponding MaxPoolingWithGradMax operation
+     * argmax_in: input of the maxpooling operation, tensor which caused the argmax
+     * argmax:    the output of the corresponding MaxPoolingWithGradMax operation
      */
-    const Tensor& grad_in = context->input(1);
-    const Tensor& tensor_in = context->input(0);
-    const Tensor& tensor_argmax = context->input(2);
-
+    const Tensor& tensor_in = context->input(0);        // .Input("input: T")
+    const Tensor& grad_in = context->input(1);          // .Input("grad_in: T")
+    const Tensor& tensor_argmax_in = context->input(2); // .Input("argmax_in: T")
+    const Tensor& tensor_argmax = context->input(3);    // .Input("argmax: Targmax")
+    
+    
     PoolParameters params{context,  ksize_,       stride_,
-                          padding_, data_format_, tensor_in.shape()};
+                          padding_, data_format_, tensor_argmax_in.shape()};
+
+    //PoolParameters params{context,  ksize_,       stride_,
+    //                      padding_, data_format_, tensor_in.shape()};
     //if (!context->status().ok()) {
     //  return;
     //}
@@ -747,9 +753,9 @@ class MaxUnpoolingGradOp : public OpKernel {
     OP_REQUIRES(context, data_format_ == FORMAT_NHWC,
                 errors::InvalidArgument("Only supporting NHWC format."));
     
-    TensorShape out_shape =
-        ShapeFromFormat(data_format_, params.tensor_in_batch, params.out_height,
-                        params.out_width, params.depth);
+    TensorShape out_shape = tensor_in.shape();
+        //ShapeFromFormat(data_format_, params.tensor_in_batch, params.out_height,
+        //                params.out_width, params.depth);
     
     Tensor* grad_out = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &grad_out));
