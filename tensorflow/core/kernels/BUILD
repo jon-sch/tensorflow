@@ -1112,6 +1112,7 @@ tf_kernel_libraries(
         "scan_ops",
         "sequence_ops",
         "sparse_matmul_op",
+        "hough_op",
     ],
     deps = [
         ":bounds_check",
