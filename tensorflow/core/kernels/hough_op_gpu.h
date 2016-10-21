@@ -7,6 +7,11 @@
 #ifndef TENSORFLOW_CORE_KERNELS_HOUGH_OP_GPU_H
 #define TENSORFLOW_CORE_KERNELS_HOUGH_OP_GPU_H
 
+#define EIGEN_USE_GPU
+
+#include "tensorflow/core/framework/tensor_types.h"
+
+
 namespace tensorflow {
 
 

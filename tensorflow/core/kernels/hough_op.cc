@@ -3,12 +3,17 @@
 #include "tensorflow/core/kernels/hough_op.h"
 
 #include <vector>
+//~ #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
+//~ #include "tensorflow/core/common_runtime/device.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
+#include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/util/tensor_format.h"
 
 
 #if GOOGLE_CUDA
 #include "tensorflow/core/kernels/hough_op_gpu.h"
+#include "tensorflow/core/platform/stream_executor.h"
 #endif  // GOOGLE_CUDA
 
 
@@ -18,28 +23,31 @@ namespace tensorflow {
 
 #if GOOGLE_CUDA
 
+
 typedef Eigen::GpuDevice GPUDevice;
 
 
 // Hough Transform -----------------------------------------------------
 
-template <typename T>
+template <typename Device, typename T>
 struct LaunchHoughTransform;
 
-template <typename T>
+template <typename Device, typename T>
 class HoughTransformOp : public OpKernel {
  public:
-  typedef GPUDevice Device;
   explicit HoughTransformOp(OpKernelConstruction* context)
       : OpKernel(context) {
 	OP_REQUIRES_OK(context, context->GetAttr("threshold", &threshold));
 	
-	OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format));
+    string data_format_;
+	OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format_));
+    OP_REQUIRES(context, FormatFromString(data_format_, &data_format),
+                errors::InvalidArgument("Invalid data format"));
 	OP_REQUIRES(context, data_format == FORMAT_NHWC,
                 errors::InvalidArgument("Hough Transform only supports NHWC format"));
 	
-	OP_REQUIRES_OK(context, context->GetAttr("out_shape", &out_img_shape);
-    OP_REQUIRES(context, outShape.size() == 2,
+	OP_REQUIRES_OK(context, context->GetAttr("out_shape", &out_img_shape));
+    OP_REQUIRES(context, out_img_shape.size() == 2,
                 errors::InvalidArgument("Output image shape has to have 2 dimensions (height, width)"));
   }
 
@@ -48,8 +56,7 @@ class HoughTransformOp : public OpKernel {
     const Tensor& map   = context->input(1);
     
     // setup output shape
-    TensorShape out_shape;
-    out_shape.SlowCopyFrom(&input.shape());
+    TensorShape out_shape = TensorShape(input.shape());
     out_shape.set_dim(1, out_img_shape[0]);
     out_shape.set_dim(2, out_img_shape[1]);
     
@@ -57,7 +64,7 @@ class HoughTransformOp : public OpKernel {
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
 	
 	// Checks	
-	CHECK(map.dim_size() == 3) << "Incorrect format of the Hough Map";
+	CHECK(map.shape().dims() == 3) << "Incorrect format of the Hough Map";
 	// check input.shape[1] == map.shape[0]
 	// check input.shape[2] == map.shape[1]
 	// check out_img_shape[0] == map.shape[3]
@@ -79,13 +86,13 @@ struct LaunchHoughTransform<Eigen::GpuDevice, T> {
 					 const Tensor& input, Tensor* output,
 					 const Tensor& map, const float threshold){
     TensorShape in_shape = input.shape();
-    TensorShape out_shape = output.shape();
+    TensorShape out_shape = output->shape();
 	
 	bool status = DiscreteHough(
 		in_shape.dim_size(0), in_shape.dim_size(3),
 		in_shape.dim_size(1), out_shape.dim_size(1),
 		in_shape.dim_size(2), out_shape.dim_size(2),
-		output.flat<T>().data(), input.flat<T>.data(),
+		output->flat<T>().data(), input.flat<T>().data(),
 		map.flat<int64>().data(), threshold,
 		context->eigen_gpu_device()
 	);
@@ -117,23 +124,25 @@ REGISTER_KERNEL_BUILDER(
 
 // Hough Transform Gradient --------------------------------------------
 
-template <typename T>
+template <typename Device, typename T>
 struct LaunchHoughTransformGrad;
 
-template <typename T>
+template <typename Device, typename T>
 class HoughTransformGradOp : public OpKernel {
  public:
-  typedef GPUDevice Device;
   explicit HoughTransformGradOp(OpKernelConstruction* context)
       : OpKernel(context) {
 	OP_REQUIRES_OK(context, context->GetAttr("threshold", &threshold));
 	
-	OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format));
+    string data_format_;
+	OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format_));
+    OP_REQUIRES(context, FormatFromString(data_format_, &data_format),
+                errors::InvalidArgument("Invalid data format"));
 	OP_REQUIRES(context, data_format == FORMAT_NHWC,
                 errors::InvalidArgument("Hough Transform only supports NHWC format"));
 	
-	OP_REQUIRES_OK(context, context->GetAttr("out_shape", &out_img_shape);
-    OP_REQUIRES(context, outShape.size() == 2,
+	OP_REQUIRES_OK(context, context->GetAttr("out_shape", &out_img_shape));
+    OP_REQUIRES(context, out_img_shape.size() == 2,
                 errors::InvalidArgument("Output image shape has to have 2 dimensions (height, width)"));
   }
   
@@ -170,8 +179,8 @@ struct LaunchHoughTransformGrad<Eigen::GpuDevice, T> {
 		in_shape.dim_size(0), in_shape.dim_size(3),
 		in_shape.dim_size(1), out_shape.dim_size(1),
 		in_shape.dim_size(2), out_shape.dim_size(2),
-		grad_in.flat<T>().data(), output.flat<T>.data(),
-		input.flat<T>().data(), grad_out.flat<T>.data(),
+		grad_in.flat<T>().data(), output.flat<T>().data(),
+		input.flat<T>().data(), grad_out->flat<T>().data(),
 		map.flat<int64>().data(), threshold,
 		context->eigen_gpu_device()
 	);
