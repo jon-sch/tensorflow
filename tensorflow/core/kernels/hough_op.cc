@@ -3,8 +3,6 @@
 #include "tensorflow/core/kernels/hough_op.h"
 
 #include <vector>
-//~ #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
-//~ #include "tensorflow/core/common_runtime/device.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -140,10 +138,6 @@ class HoughTransformGradOp : public OpKernel {
                 errors::InvalidArgument("Invalid data format"));
 	OP_REQUIRES(context, data_format == FORMAT_NHWC,
                 errors::InvalidArgument("Hough Transform only supports NHWC format"));
-	
-	OP_REQUIRES_OK(context, context->GetAttr("out_shape", &out_img_shape));
-    OP_REQUIRES(context, out_img_shape.size() == 2,
-                errors::InvalidArgument("Output image shape has to have 2 dimensions (height, width)"));
   }
   
   void Compute(OpKernelContext* context) override {
@@ -163,7 +157,6 @@ class HoughTransformGradOp : public OpKernel {
  private:
   float threshold;
   TensorFormat data_format;
-  std::vector<int> out_img_shape;
 };
 
 template <typename T>
