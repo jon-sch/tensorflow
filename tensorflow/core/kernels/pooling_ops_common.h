@@ -247,6 +247,86 @@ class MaxPoolingOp : public OpKernel {
             params.tensor_in_batch, shard_cost, shard);
     }
   }
+  
+  
+  void SpatialMaxPoolWithArgmax(OpKernelContext* context, Tensor* output, Tensor* _mask,
+                                const Tensor& tensor_in, const PoolParameters& params,
+                                const Padding& padding) {
+    
+    T* data_in = tensor_in.flat<T>().data();
+    T* data_out = output->flat<T>().data();
+    int64* mask = _mask->flat<int64>().data();
+    
+    const DeviceBase::CpuWorkerThreads& worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
+    
+    // To avoid locking and reach maximum parallelism, every thread is responsible
+    // for channels. This means the amount of shards to be done is in_batch * depth.
+    // Additionally the HWC-index is computed for the maximum and stored in mask
+    // which has the same dimensions like tensor_in and datatype int64.
+    auto shard = [&params, data_in, data_out, mask](int64 start, int64 limit) {
+      
+      const int32 in_batch = params.tensor_in_rows;
+      const int32 depth = params.tensor_in_rows;
+      const int32 in_rows = params.tensor_in_rows;
+      const int32 in_cols = params.tensor_in_cols;
+      const int32 pad_rows = params.pad_rows;
+      const int32 pad_cols = params.pad_cols;
+      const int32 window_rows = params.window_rows;
+      const int32 window_cols = params.window_cols;
+      const int32 row_stride = params.row_stride;
+      const int32 col_stride = params.col_stride;
+      const int32 out_rows = params.out_height;
+      const int32 out_cols = params.out_width;
+      
+      {
+        // Initializes the output tensor with MIN<T>
+        const int32 chunk_size = out_rows * out_cols;
+        Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> range(data_out + start * chunk_size, 1, (limit - start) * chunk_size);
+        range.setConstant(Eigen::NumTraits<T>::lowest());
+      }
+      
+      for (int32 i = start; i < limit; ++i) {
+        const int32 n = i / in_batch;
+        const int32 c = i % depth;
+        const int32 out_idx_base1 = n * out_rows;
+      
+        for (int32 h = 0; h < in_rows; ++h) {
+          for (int32 w = 0; w < in_cols; ++w) {
+            const int32 hpad = h + pad_rows;
+            const int32 wpad = w + pad_cols;
+            
+            // computing all output cells which are affected by [h,w] cell of input, in
+            // general that happens if the stride is less the window size in a dimension
+            const int32 h_start = (hpad < window_rows) ? 0 : (hpad - window_rows) / row_stride + 1;
+            const int32 h_end = std::min(hpad / row_stride + 1, out_rows);
+            const int32 w_start = (wpad < window_cols) ? 0 : (wpad - window_cols) / col_stride + 1;
+            const int32 w_end = std::min(wpad / col_stride + 1, out_cols);
+            
+            const int32 in_idx = ((n * in_rows + h) * in_cols + w) * depth + c;
+            const int32 in_idx_batch = (h * in_cols + w) * depth + c;
+            
+            for (int32 ph = h_start; ph < h_end; ++ph) {
+              const int32 out_idx_base2 = (out_idx_base1 + ph) * out_cols;
+              
+              for (int32 pw = w_start; pw < w_end; ++pw) {
+                const int32 out_idx = (out_idx_base2 + pw) * depth + c;
+                
+                if (data_out[out_idx] < data_in[in_idx]){
+                  data_out[out_idx] = data_in[in_idx];
+                  mask[out_idx] = in_idx_batch; // store flattened index on batch (not globally flattened)
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    const int64 shard_total = params.tensor_in_batch * params.depth;
+    const int64 shard_cost = params.tensor_in_rows * params.tensor_in_cols;
+    Shard(worker_threads.num_threads, worker_threads.workers, shard_total, shard_cost, shard);
+  }
+  
 
   std::vector<int32> ksize_;
   std::vector<int32> stride_;
