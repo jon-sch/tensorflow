@@ -966,6 +966,39 @@ argmax: The indices of the maximum values chosen for each output of `max_pool`.
 output: Gradients w.r.t. the input of `max_pool`.
 )doc");
 
+REGISTER_OP("Unpool")
+    .Attr("ksize: list(int) >= 4")
+    .Attr("strides: list(int) >= 4")
+    .Attr("Targmax: {int32, int64} = DT_INT64")
+    .Attr(GetPaddingAttrString())
+    .Input("pooling_input: T")
+    .Input("input: T")
+    .Input("indices: Targmax")
+    .Output("output: T")
+    .Attr("T: {float, half} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) {
+      return UnchangedShapeWithRank(c, 4);
+    })
+    .Doc(R"doc(
+Performs unpooling on the input given the indices.
+
+The indices are (batch-wise) flattened, so that a the index
+`[b, y, x, c]` becomes flattened index
+`(y * width + x) * channels + c`. During the unpooling these
+are extended to `((b * height + y) * width + x) * channels + c`,
+so the content can be reached.
+
+ksize: The size of the window for each dimension of the input tensor.
+strides: The stride of the sliding window for each dimension of the
+  input tensor.
+padding: The type of padding algorithm to use.
+pooling_input: The input of the corresponding pooling operation.
+input: 4-D with shape `[batch, height, width, channels]`. The actual input.
+  The stuff to be pooled.
+indices: indices of the pooled values on the layer the were selected from.
+output: Unpooled data according to the given indices.
+)doc");
+
 // --------------------------------------------------------------------------
 
 REGISTER_OP("Dilation2D")

@@ -842,6 +842,7 @@ def _DepthwiseConv2dNativeBackpropInputShape(op):
 
 @ops.RegisterShape("MaxPoolGrad")
 @ops.RegisterShape("MaxPoolGradWithArgmax")
+@ops.RegisterShape("Unpool")
 def _MaxPoolGradShape(op):
   """Shape function for the MaxPoolGrad op."""
   orig_input_shape = op.inputs[0].get_shape().with_rank(4)
