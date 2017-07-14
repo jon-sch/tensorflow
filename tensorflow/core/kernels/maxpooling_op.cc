@@ -798,6 +798,55 @@ class UnpoolingOp : public OpKernel {
   Padding padding_;
 };
 
+template <typename Device, typename T>
+struct LaunchUnpoolingGrad;
+
+template <typename Device, typename T>
+class UnpoolingGradOp : public OpKernel {
+ public:
+  explicit UnpoolingGradOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("ksize", &ksize_));
+    OP_REQUIRES(context, ksize_.size() == 4,
+                errors::InvalidArgument("Sliding window ksize field must "
+                                        "specify 4 dimensions"));
+    OP_REQUIRES_OK(context, context->GetAttr("strides", &stride_));
+    OP_REQUIRES(context, stride_.size() == 4,
+                errors::InvalidArgument("Sliding window stride field must "
+                                        "specify 4 dimensions"));
+    OP_REQUIRES_OK(context, context->GetAttr("padding", &padding_));
+    OP_REQUIRES(context, ksize_[0] == 1 && stride_[0] == 1,
+                errors::Unimplemented(
+                    "Pooling is not yet supported on the batch dimension."));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    const Tensor& grad_in = context->input(0);
+    const Tensor& indices = context->input(1);
+    
+    PoolParameters params{context,  ksize_,      stride_,
+                          padding_, FORMAT_NHWC, grad_in.shape()};
+    if (!context->status().ok()) {
+      return;
+    }
+
+    TensorShape out_shape({params.tensor_in_batch, params.out_height,
+                           params.out_width, params.depth});
+    
+    std::cout << "grad_out shape " << params.tensor_in_batch << "x" << params.out_height << "x" << params.out_width << "x" << params.depth << std::endl;
+    
+    Tensor* grad_out = nullptr;
+    OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &grad_out));
+    
+    LaunchUnpoolingGrad<Device, T>::launch(context, params, grad_in, indices, grad_out);
+  }
+
+ private:
+  std::vector<int32> ksize_;
+  std::vector<int32> stride_;
+  Padding padding_;
+};
+
 #if GOOGLE_CUDA
 template <typename T>
 class MaxPoolingNoMaskOp<GPUDevice, T> : public OpKernel {
@@ -949,6 +998,41 @@ REGISTER_KERNEL_BUILDER(
         .TypeConstraint<Eigen::half>("T")
         .TypeConstraint<int64>("Targmax"),
     MaxPoolingGradWithArgmaxOp<Eigen::GpuDevice, Eigen::half>);
+
+template <typename T>
+struct LaunchUnpoolingGrad<Eigen::GpuDevice, T> {
+  static void launch(OpKernelContext* context, const PoolParameters& params,
+                     const Tensor& grad_in, const Tensor& indices,
+                     Tensor* grad_out) {
+    const int output_size = params.tensor_in_batch * params.tensor_in_rows *
+                            params.tensor_in_cols * params.depth;
+    const int input_size = params.tensor_in_batch * params.out_height *
+                           params.out_width * params.depth;
+    const int bottom_offset = params.out_height * params.out_width * params.depth;
+    const int top_offset = params.tensor_in_rows * params.tensor_in_cols * params.depth;
+    bool status = UnpoolBackward(
+        output_size, input_size, grad_in.flat<T>().data(),
+        reinterpret_cast<const int64*>(indices.flat<int64>().data()), top_offset,
+        bottom_offset, grad_out->flat<T>().data(), context->eigen_gpu_device());
+    if (!status) {
+      context->SetStatus(
+          errors::Internal("Failed launching UnpoolBackward"));
+    }
+  }
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("UnpoolGrad")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<float>("T")
+        .TypeConstraint<int64>("Targmax"),
+    UnpoolingGradOp<Eigen::GpuDevice, float>);
+REGISTER_KERNEL_BUILDER(
+    Name("UnpoolGrad")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<Eigen::half>("T")
+        .TypeConstraint<int64>("Targmax"),
+    UnpoolingGradOp<Eigen::GpuDevice, Eigen::half>);
 
 
 REGISTER_KERNEL_BUILDER(
