@@ -972,7 +972,7 @@ REGISTER_OP("Unpool")
     .Attr("Targmax: {int32, int64} = DT_INT64")
     .Attr(GetPaddingAttrString())
     .Input("pooling_input: T")
-    .Input("input: T")
+    .Input("grad: T")
     .Input("indices: Targmax")
     .Output("output: T")
     .Attr("T: {float, half} = DT_FLOAT")
@@ -993,8 +993,37 @@ strides: The stride of the sliding window for each dimension of the
   input tensor.
 padding: The type of padding algorithm to use.
 pooling_input: The input of the corresponding pooling operation.
-input: 4-D with shape `[batch, height, width, channels]`. The actual input.
-  The stuff to be pooled.
+grad: 4-D with shape `[batch, height, width, channels]`.  Gradients w.r.t. the
+  output of `unpool`.
+indices: indices of the pooled values on the layer the were selected from.
+output: Unpooled data according to the given indices.
+)doc");
+
+
+REGISTER_OP("UnpoolGrad")
+    .Attr("ksize: list(int) >= 4")
+    .Attr("strides: list(int) >= 4")
+    .Attr("Targmax: {int32, int64} = DT_INT64")
+    .Attr(GetPaddingAttrString())
+    .Input("input: T")
+    .Input("indices: Targmax")
+    .Output("output: T")
+    .Attr("T: {float, half} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) {
+      c->set_output(0, c->input(1));
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Performs gradient of unpooling. This is more or less a pooling operation
+itself. Pooling criterion are the given indices not the (necessarily) the
+max value, though.
+
+ksize: The size of the window for each dimension of the input tensor.
+strides: The stride of the sliding window for each dimension of the
+  input tensor.
+padding: The type of padding algorithm to use.
+input: 4-D with shape `[batch, height, width, channels]`. The gradient of the
+  previous operation.
 indices: indices of the pooled values on the layer the were selected from.
 output: Unpooled data according to the given indices.
 )doc");

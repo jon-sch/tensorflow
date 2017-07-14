@@ -55,6 +55,16 @@ bool MaxPoolBackwardWithArgmax(const int output_size, const int input_size,
                                Eigen::half* bottom_diff,
                                const Eigen::GpuDevice& d);
 
+bool UnpoolBackward(const int output_size, const int input_size,
+                    const float* top_diff, const int64* mask,
+                    const int top_offset, const int bottom_offset,
+                    float* bottom_diff, const Eigen::GpuDevice& d);
+
+bool UnpoolBackward(const int output_size, const int input_size,
+                    const Eigen::half* top_diff, const int64* mask,
+                    const int top_offset, const int bottom_offset,
+                    Eigen::half* bottom_diff, const Eigen::GpuDevice& d);
+
 bool MaxPoolBackwardNoMask(const float* bottom_data, const int batch,
                            const int height, const int width,
                            const int channels, const int pooled_height,

@@ -848,6 +848,11 @@ def _MaxPoolGradShape(op):
   orig_input_shape = op.inputs[0].get_shape().with_rank(4)
   return [orig_input_shape]
 
+@ops.RegisterShape("UnpoolGrad")
+def _UnpoolGradShape(op):
+  """Shape function for the MaxPoolGrad op."""
+  orig_input_shape = op.inputs[1].get_shape().with_rank(4) # op.inputs[1] are the indices
+  return [orig_input_shape]
 
 @ops.RegisterStatistics("Conv2D", "flops")
 def _calc_conv_flops(graph, node):
