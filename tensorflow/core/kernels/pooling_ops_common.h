@@ -265,8 +265,8 @@ class MaxPoolingOp : public OpKernel {
     // which has the same dimensions like tensor_in and datatype int64.
     auto shard = [&params, data_in, data_out, mask](int64 start, int64 limit) {
       
-      const int32 in_batch = params.tensor_in_rows;
-      const int32 depth = params.tensor_in_rows;
+      const int32 in_batch = params.tensor_in_batch;
+      const int32 depth = params.depth;
       const int32 in_rows = params.tensor_in_rows;
       const int32 in_cols = params.tensor_in_cols;
       const int32 pad_rows = params.pad_rows;
@@ -279,7 +279,9 @@ class MaxPoolingOp : public OpKernel {
       const int32 out_cols = params.out_width;
       
       {
-        // Initializes the output tensor with MIN<T>
+        // Initializes the output tensor with MIN<T>.
+        // This works since every thread is responsible for a set of layer the other 
+        // threads do not manipulate
         const int32 chunk_size = out_rows * out_cols;
         Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> range(data_out + start * chunk_size, 1, (limit - start) * chunk_size);
         range.setConstant(Eigen::NumTraits<T>::lowest());
