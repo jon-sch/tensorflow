@@ -833,8 +833,6 @@ class UnpoolingGradOp : public OpKernel {
     TensorShape out_shape({params.tensor_in_batch, params.out_height,
                            params.out_width, params.depth});
     
-    std::cout << "grad_out shape " << params.tensor_in_batch << "x" << params.out_height << "x" << params.out_width << "x" << params.depth << std::endl;
-    
     Tensor* grad_out = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &grad_out));
     
@@ -1004,13 +1002,14 @@ struct LaunchUnpoolingGrad<Eigen::GpuDevice, T> {
   static void launch(OpKernelContext* context, const PoolParameters& params,
                      const Tensor& grad_in, const Tensor& indices,
                      Tensor* grad_out) {
-    const int output_size = params.tensor_in_batch * params.tensor_in_rows *
-                            params.tensor_in_cols * params.depth;
-    const int input_size = params.tensor_in_batch * params.out_height *
-                           params.out_width * params.depth;
+    const int input_size = params.tensor_in_batch * params.tensor_in_rows *
+                           params.tensor_in_cols * params.depth;
+    const int output_size = params.tensor_in_batch * params.out_height *
+                            params.out_width * params.depth;
     const int bottom_offset = params.out_height * params.out_width * params.depth;
     const int top_offset = params.tensor_in_rows * params.tensor_in_cols * params.depth;
-    bool status = UnpoolBackward(
+    
+    bool status = UnpoolBackwardWithIndices(
         output_size, input_size, grad_in.flat<T>().data(),
         reinterpret_cast<const int64*>(indices.flat<int64>().data()), top_offset,
         bottom_offset, grad_out->flat<T>().data(), context->eigen_gpu_device());
