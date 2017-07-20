@@ -217,23 +217,6 @@ static void SpatialMaxPoolWithArgMaxHelper2(OpKernelContext* context, Tensor* ou
     const int32 col_stride = params.col_stride;
     const int32 out_rows = params.out_height;
     const int32 out_cols = params.out_width;
-  
-    //~ {
-      //~ // Initializes the output tensor with MIN<T>.
-      //~ // This works since every thread is responsible for a set of layer the other 
-      //~ // threads do not manipulate
-      //~ const int32 n0 = start / depth;
-      //~ const int32 c0 = start % depth;
-      //~ const int32 n1 = limit / depth;
-      //~ const int32 c1 = limit % depth;
-      //~ 
-      //~ const int32 r0 = n0 * out_rows * out_cols * depth + c0;
-      //~ const int32 r1 = n1 * out_rows * out_cols * depth + c1;
-      //~ 
-      //~ const int32 chunk_size = out_rows * out_cols;
-      //~ Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> range(data_out + start * chunk_size, 1, (limit - start) * chunk_size);
-      //~ range.setConstant(Eigen::NumTraits<T>::lowest());
-    //~ }
     
     std::cout << "range " << start << "-" << limit << std::endl;
     
@@ -326,7 +309,7 @@ static void UnpoolingHelper(OpKernelContext* context, Tensor* output, const Tens
       for (int32 h = 0; h < in_rows; ++h) {
         for (int32 w = 0; w < in_cols; ++w) {
           //~ data_out[((n * out_rows + h) * out_cols + w) * depth + c] = T(0);
-          data_out[batch_offset + (h * out_cols + w) * depth + c] = T(0);
+          data_out[batch_offset + (h * in_cols + w) * depth + c] = T(0);
         }
       }
       
