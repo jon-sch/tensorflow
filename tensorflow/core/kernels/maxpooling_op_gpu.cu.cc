@@ -217,11 +217,11 @@ __global__ void MaxPoolBackward(const int nthreads, const dtype* top_diff,
 // the kernel is run, you will need to make sure that bottom_diff is filled with
 // zero first.
 template <typename dtype>
-__global__ void UnpoolBackwardNHWC(const int nthreads, const dtype* top_diff,
+__global__ void UnpoolBackward(const int nthreads, const dtype* top_diff,
                                const int64* mask, const int top_offset,
                                const int bottom_offset, dtype* bottom_diff) {
   CUDA_1D_KERNEL_LOOP(index, nthreads) {
-    int image_id = (index / top_offset);
+    int image_id = (index / bottom_offset);
     bottom_diff[index] = top_diff[image_id * top_offset + mask[index]];
   }
 }
@@ -338,24 +338,22 @@ bool MaxPoolBackwardWithArgmax(const int output_size, const int input_size,
   return d.ok();
 }
 
-bool UnpoolBackward(const int output_size, const int input_size,
-                    const float* top_diff, const int64* mask,
-                    const int top_offset, const int bottom_offset,
-                    float* bottom_diff, const Eigen::GpuDevice& d) {
+bool UnpoolBackwardWithIndices(const int output_size, const int input_size,
+                               const float* top_diff, const int64* mask,
+                               const int top_offset, const int bottom_offset,
+                               float* bottom_diff, const Eigen::GpuDevice& d) {
   const int kThreadsPerBlock = 1024;
-  UnpoolBackwardNHWC<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock,
-                        kThreadsPerBlock, 0, d.stream()>>>(
+  UnpoolBackward<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, d.stream()>>>(
       output_size, top_diff, mask, top_offset, bottom_offset, bottom_diff);
   return d.ok();
 }
 
-bool UnpoolBackward(const int output_size, const int input_size,
-                    const Eigen::half* top_diff, const int64* mask,
-                    const int top_offset, const int bottom_offset,
-                    Eigen::half* bottom_diff, const Eigen::GpuDevice& d) {
+bool UnpoolBackwardWithIndices(const int output_size, const int input_size,
+                               const Eigen::half* top_diff, const int64* mask,
+                               const int top_offset, const int bottom_offset,
+                               Eigen::half* bottom_diff, const Eigen::GpuDevice& d) {
   const int kThreadsPerBlock = 1024;
-  UnpoolBackwardNHWC<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock,
-                        kThreadsPerBlock, 0, d.stream()>>>(
+  UnpoolBackward<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock, kThreadsPerBlock, 0, d.stream()>>>(
       output_size, top_diff, mask, top_offset, bottom_offset, bottom_diff);
   return d.ok();
 }
