@@ -206,16 +206,13 @@ __global__ void MaxPoolBackward(const int nthreads, const dtype* top_diff,
 //        entries, the backward function is agnostic of the input storage order.
 //     mask: the output mask of the same size as top_data. It is stored in
 //         int form, keeping track of the flattened index of the input item that
-//         produces the max output.
+//         produces the pooling output.
 //     top_offset: the pre-computed per-image offset of the maxpool output. This
 //         is equal to Hout*Wout*C. We choose to pre-compute this so we do not
 //         need to compute it every time inside the kernel.
 //     bottom_offset: the pre-computed per-image offset of the maxpool input.
 //         This is equal to H*W*C.
 //     bottom_diff: the gradient with respect to the input.
-// This function relies on CudaAtomicAdd to avoid race conditions. Also, before
-// the kernel is run, you will need to make sure that bottom_diff is filled with
-// zero first.
 template <typename dtype>
 __global__ void UnpoolBackward(const int nthreads, const dtype* top_diff,
                                const int64* mask, const int top_offset,

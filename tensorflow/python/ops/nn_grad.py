@@ -420,6 +420,27 @@ def _MaxPoolGrad(op, grad):
                                    padding=op.get_attr("padding"),
                                    data_format=op.get_attr("data_format"))
 
+@ops.RegisterGradient("MaxPoolWithArgmax")
+def _MaxPoolGradWithArgmax(op, grad):
+    return gen_nn_ops._max_pool_grad_with_argmax(op.inputs[0],
+                                                 grad,
+                                                 op.outputs[1], # argmax
+                                                 op.get_attr("ksize"),
+                                                 op.get_attr("strides"),
+                                                 padding=op.get_attr("padding"))
+
+@ops.RegisterGradient("Unpool")
+def _UnpoolGrad(op, grad_input):
+    # there is only a gradient w.r.t. to the actual input values
+    # input 1 (input of pooling) and 3 (indices of pooling) are auxiliaries
+    return [None,
+            gen_nn_ops._unpool_grad(grad_input,
+                                    op.inputs[2], # indices
+                                    op.get_attr("ksize"),
+                                    op.get_attr("strides"),
+                                    padding=op.get_attr("padding")),
+            None]
+
 
 @ops.RegisterGradient("FractionalMaxPool")
 def _FractionalMaxPoolGrad(op, grad_0, unused_grad_1, unused_grad_2):

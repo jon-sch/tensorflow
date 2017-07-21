@@ -1345,8 +1345,8 @@ REGISTER_OP("Unpool")
     .Attr("strides: list(int) >= 4")
     .Attr("Targmax: {int32, int64} = DT_INT64")
     .Attr(GetPaddingAttrString())
-    .Input("pooling_input: T")
-    .Input("grad: T")
+    .Input("pooling_input: T") // on first position so we can use UnchangedShapeWithRank (uses first input)
+    .Input("input: T")
     .Input("indices: Targmax")
     .Output("output: T")
     .Attr("T: {float, half} = DT_FLOAT")
@@ -1367,8 +1367,8 @@ strides: The stride of the sliding window for each dimension of the
   input tensor.
 padding: The type of padding algorithm to use.
 pooling_input: The input of the corresponding pooling operation.
-grad: 4-D with shape `[batch, height, width, channels]`.  Gradients w.r.t. the
-  output of `unpool`.
+input: 4-D with shape `[batch, height, width, channels]`. The gradient of the
+  previous operation.
 indices: indices of the pooled values on the layer the were selected from.
 output: Unpooled data according to the given indices.
 )doc");
@@ -1379,7 +1379,7 @@ REGISTER_OP("UnpoolGrad")
     .Attr("strides: list(int) >= 4")
     .Attr("Targmax: {int32, int64} = DT_INT64")
     .Attr(GetPaddingAttrString())
-    .Input("input: T")
+    .Input("grad: T")
     .Input("indices: Targmax")
     .Output("output: T")
     .Attr("T: {float, half} = DT_FLOAT")
@@ -1396,8 +1396,8 @@ ksize: The size of the window for each dimension of the input tensor.
 strides: The stride of the sliding window for each dimension of the
   input tensor.
 padding: The type of padding algorithm to use.
-input: 4-D with shape `[batch, height, width, channels]`. The gradient of the
-  previous operation.
+grad: 4-D with shape `[batch, height, width, channels]`.  Gradients w.r.t. the
+  output of `unpool`.
 indices: indices of the pooled values on the layer the were selected from.
 output: Unpooled data according to the given indices.
 )doc");
