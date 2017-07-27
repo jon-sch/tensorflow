@@ -1691,6 +1691,15 @@ def cumprod(x, axis=0, exclusive=False, reverse=False, name=None):
     return gen_math_ops.cumprod(
         x, axis, exclusive=exclusive, reverse=reverse, name=name)
 
+def hough_transform(x, map, out_shape, threshold, data_format="NHWC", name=None):
+    with ops.op_scope([x, map], name, "HoughTransform") as name:
+        return gen_math_ops._hough_transform(x,
+                                             map,
+                                             out_shape=out_shape,
+                                             threshold=threshold,
+                                             data_format=data_format,
+                                             name=name)
+
 
 ops.RegisterShape("Abs")(common_shapes.unchanged_shape)
 ops.RegisterShape("Acos")(common_shapes.unchanged_shape)
@@ -1984,6 +1993,23 @@ def _UnsortedSegmentSumShape(op):
 def _LinspaceShape(op):
   num = tensor_util.constant_value(op.inputs[2])
   return [tensor_shape.vector(num)]
+
+
+@ops.RegisterShape("HoughTransform")
+def _HoughTransformShape(op):
+    in_dims = op.inputs[0].get_shape().with_rank(4).as_list()
+    out_img_dims = op.get_attr("out_shape")
+    
+    # adapt height and width of hough space respectively
+    in_dims[1] = out_img_dims[0]
+    in_dims[2] = out_img_dims[1]
+    
+    return [tensor_shape.TensorShape(in_dims)]
+
+
+@ops.RegisterShape("HoughTransformGrad")
+def _HoughTransformGradShape(op):
+    return [op.inputs[0].get_shape().with_rank(4)]
 
 
 def reduced_shape(input_shape, axes):

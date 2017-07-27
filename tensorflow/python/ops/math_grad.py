@@ -890,3 +890,20 @@ def _CumprodGrad(op, grad):
   out = math_ops.cumsum(prod * grad, axis, exclusive=exclusive,
                         reverse=not reverse)
   return [out / x, None]
+
+
+
+@ops.RegisterGradient("HoughTransform")
+def _HoughTransformGrad(op, grad):
+    input  = op.inputs[0]
+    map    = op.inputs[1]
+    output = op.outputs[0]
+    
+    grad_out = gen_math_ops._hough_transform_grad(input,
+                                                  map,
+                                                  grad,
+                                                  output,
+                                                  threshold=op.get_attr("threshold"),
+                                                  data_format=op.get_attr("data_format"))
+    
+    return grad_out, None # No gradient w.r.t. the map

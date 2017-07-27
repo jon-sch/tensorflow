@@ -685,6 +685,8 @@ tf_gen_op_wrapper_py(
         "Tanh",
         "SigmoidGrad",
         "TanhGrad",
+        "HoughTransform",
+        "HoughTransformGrad",
     ],
     require_shape_functions = True,
 )

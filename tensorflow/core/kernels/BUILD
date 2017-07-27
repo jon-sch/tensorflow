@@ -1097,6 +1097,7 @@ tf_kernel_libraries(
         "cross_op",
         "cwise_op",
         "fft_ops",
+        "hough_op",
         "matmul_op",
         "reduction_ops",
         "segment_reduction_ops",

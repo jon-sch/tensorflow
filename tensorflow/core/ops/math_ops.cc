@@ -17,6 +17,7 @@ limitations under the License.
 #include "tensorflow/core/framework/numeric_op.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "tensorflow/core/util/tensor_format.h"
 
 namespace tensorflow {
 
@@ -1951,4 +1952,35 @@ tf.cumprod([a, b, c], exclusive=True, reverse=True) ==> [b * c, c, 0]
 ```
 )doc");
 
+// --------------------------------------------------------------------------
+
+REGISTER_OP("HoughTransform")
+    .Input("input: T")
+    .Input("map: Tmap")
+    .Output("output: T")
+    .Attr("threshold: float")
+    .Attr("out_shape: list(int)")
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("T: {float, half} = DT_FLOAT")
+    .Attr("Tmap: {int32, int64} = DT_INT64")
+    .Doc(R"doc(
+Implementation of the Hough Transform which applies the given map
+batch- and channelwise.
+    )doc");
+
+REGISTER_OP("HoughTransformGrad")
+    .Input("input: T")
+    .Input("map: Tmap")
+    .Input("grad_in: T")
+    .Input("output: T")
+    .Output("grad_out: T")
+    .Attr("threshold: float")
+    .Attr("out_shape: list(int)")
+    .Attr(GetConvnetDataFormatAttrString())
+    .Attr("T: {float, half} = DT_FLOAT")
+    .Attr("Tmap: {int32, int64} = DT_INT64")
+    .Doc(R"doc(
+Implementation of the respective gradient.
+    )doc");
+    
 }  // namespace tensorflow
