@@ -626,6 +626,156 @@ class MaxPoolingNoMaskOp<GPUDevice, T> : public OpKernel {
   bool use_dnn_;
 };
 
+
+
+template <typename Device, typename T>
+class MaxUnpoolingOp : public OpKernel {
+ public:
+  explicit MaxUnpoolingOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    string data_format;
+    
+    OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format));
+    OP_REQUIRES(context, FormatFromString(data_format, &data_format_),
+                errors::InvalidArgument("Invalid data format"));
+                
+    OP_REQUIRES_OK(context, context->GetAttr("ksize", &ksize_));
+    OP_REQUIRES(context, ksize_.size() == 4,
+                errors::InvalidArgument("Sliding window ksize field must "
+                                        "specify 4 dimensions"));
+                                        
+    OP_REQUIRES_OK(context, context->GetAttr("strides", &stride_));
+    OP_REQUIRES(context, stride_.size() == 4,
+                errors::InvalidArgument("Sliding window stride field must "
+                                        "specify 4 dimensions"));
+    OP_REQUIRES_OK(context, context->GetAttr("padding", &padding_));
+    OP_REQUIRES(context, ksize_[0] == 1 && stride_[0] == 1,
+                errors::Unimplemented(
+                    "Unpooling is not yet supported on the batch dimension."));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    /*
+     * MaxUnpooling basically is equivalent to the MaxPooling Grad
+     * We propagate values up according to the argmax
+     * 
+     * tensor_in: actual data
+     * tensor_argmax_in: data which caused the argmax (of the corresponding
+     *   MaxPoolingWithArgmax operation), needed/used to recover shape
+     * argmax: the output of the corresponding MaxPoolingWithGradMax operation
+     */
+    const Tensor& tensor_in = context->input(0);
+    const Tensor& tensor_argmax_in = context->input(1);
+    const Tensor& tensor_argmax = context->input(2);
+
+    PoolParameters params{context,  ksize_,       stride_,
+                          padding_, FORMAT_NHWC, tensor_argmax_in.shape()};
+    //if (!context->status().ok()) {
+    //  return;
+    //}
+    
+    OP_REQUIRES(context, data_format_ == FORMAT_NHWC,
+                errors::InvalidArgument("Only supporting NHWC format."));
+    
+    TensorShape out_shape({params.tensor_in_batch, params.tensor_in_rows,
+                           params.tensor_in_cols, params.depth});
+    
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &output));
+
+    LaunchMaxPoolingGradWithArgmax<Device, T>::launch(context, params,
+                                                      tensor_in, tensor_argmax, output);
+  }
+
+ private:
+  std::vector<int32> ksize_;
+  std::vector<int32> stride_;
+  Padding padding_;
+  TensorFormat data_format_;
+};
+
+
+template <typename Device, typename T>
+struct LaunchMaxUnpoolingGrad;
+
+template <typename Device, typename T>
+class MaxUnpoolingGradOp : public OpKernel {
+ public:
+  explicit MaxUnpoolingGradOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    string data_format;
+    
+    OP_REQUIRES_OK(context, context->GetAttr("data_format", &data_format));
+    OP_REQUIRES(context, FormatFromString(data_format, &data_format_),
+                errors::InvalidArgument("Invalid data format"));
+                
+    OP_REQUIRES_OK(context, context->GetAttr("ksize", &ksize_));
+    OP_REQUIRES(context, ksize_.size() == 4,
+                errors::InvalidArgument("Sliding window ksize field must "
+                                        "specify 4 dimensions"));
+                                        
+    OP_REQUIRES_OK(context, context->GetAttr("strides", &stride_));
+    OP_REQUIRES(context, stride_.size() == 4,
+                errors::InvalidArgument("Sliding window stride field must "
+                                        "specify 4 dimensions"));
+    OP_REQUIRES_OK(context, context->GetAttr("padding", &padding_));
+    OP_REQUIRES(context, ksize_[0] == 1 && stride_[0] == 1,
+                errors::Unimplemented(
+                    "Unpooling is not yet supported on the batch dimension."));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    /*
+     * MaxUnpoolingGrad basically is equivalent to the MaxPooling
+     * We propagate values down according to the argmax
+     * (argmax w.r.t. to the values *not* w.r.t. gradients themselves)
+     * 
+     * grad_in:   input gradient
+     * tensor_in: actual data, needed to recover shape
+     * argmax_in: input of the maxpooling operation, tensor which caused the argmax
+     * argmax:    the output of the corresponding MaxPoolingWithGradMax operation
+     */
+    const Tensor& tensor_in = context->input(0);        // .Input("input: T")
+    const Tensor& grad_in = context->input(1);          // .Input("grad_in: T")
+    const Tensor& tensor_argmax_in = context->input(2); // .Input("argmax_in: T")
+    const Tensor& tensor_argmax = context->input(3);    // .Input("argmax: Targmax")
+    
+    
+    PoolParameters params{context,  ksize_,       stride_,
+                          padding_, data_format_, tensor_argmax_in.shape()};
+
+    //PoolParameters params{context,  ksize_,       stride_,
+    //                      padding_, data_format_, tensor_in.shape()};
+    //if (!context->status().ok()) {
+    //  return;
+    //}
+    
+    OP_REQUIRES(context, data_format_ == FORMAT_NHWC,
+                errors::InvalidArgument("Only supporting NHWC format."));
+    
+    TensorShape out_shape = tensor_in.shape();
+        //ShapeFromFormat(data_format_, params.tensor_in_batch, params.out_height,
+        //                params.out_width, params.depth);
+    
+    Tensor* grad_out = nullptr;
+    OP_REQUIRES_OK(context, context->allocate_output(0, out_shape, &grad_out));
+    
+    LaunchMaxUnpoolingGrad<Device, T>::launch(context, params, grad_in,
+                                              tensor_argmax, grad_out);
+    // Could not reuse LaunchMaxPoolingNoMask here, because we need to
+    // pool according to the argmax's not the magnitudes of the gradient
+  }
+
+ private:
+  std::vector<int32> ksize_;
+  std::vector<int32> stride_;
+  Padding padding_;
+  TensorFormat data_format_;
+};
+
+
+
+
 template <typename T>
 struct LaunchMaxPoolingNoMask<Eigen::GpuDevice, T> {
   static void launch(OpKernelContext* context, const PoolParameters& params,
@@ -715,6 +865,55 @@ REGISTER_KERNEL_BUILDER(
         .TypeConstraint<Eigen::half>("T")
         .TypeConstraint<int64>("Targmax"),
     MaxPoolingGradWithArgmaxOp<Eigen::GpuDevice, Eigen::half>);
+
+
+template <typename T>
+struct LaunchMaxUnpoolingGrad<Eigen::GpuDevice, T> {
+  static void launch(OpKernelContext* context, const PoolParameters& params,
+                     const Tensor& grad_in, const Tensor& mask,
+                     Tensor* grad_out) {
+    
+    bool status = MaskPoolForward(
+        grad_in.flat<T>().data(), params.tensor_in_batch, params.tensor_in_rows,
+        params.tensor_in_cols, params.depth, params.window_rows, params.window_cols,
+        grad_out->flat<T>().data(), mask.flat<int64>().data(), context->eigen_gpu_device());
+        
+    
+    if (!status) {
+      context->SetStatus(
+          errors::Internal("Failed launching MaxUnpoolingGrad"));
+    }
+  }  
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("MaxUnpool")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<float>("T")
+        .TypeConstraint<int64>("Targmax"),
+    MaxUnpoolingOp<Eigen::GpuDevice, float>);
+REGISTER_KERNEL_BUILDER(
+    Name("MaxUnpool")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<Eigen::half>("T")
+        .TypeConstraint<int64>("Targmax"),
+    MaxUnpoolingOp<Eigen::GpuDevice, Eigen::half>);
+
+
+REGISTER_KERNEL_BUILDER(
+    Name("MaxUnpoolGrad")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<float>("T")
+        .TypeConstraint<int64>("Targmax"),
+    MaxUnpoolingGradOp<Eigen::GpuDevice, float>);
+REGISTER_KERNEL_BUILDER(
+    Name("MaxUnpoolGrad")
+        .Device(DEVICE_GPU)
+        .TypeConstraint<Eigen::half>("T")
+        .TypeConstraint<int64>("Targmax"),
+    MaxUnpoolingGradOp<Eigen::GpuDevice, Eigen::half>);
+
+
 
 #endif  // GOOGLE_CUDA
 

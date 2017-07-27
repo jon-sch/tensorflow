@@ -129,6 +129,27 @@ __global__ void MaxPoolForwardNHWC(const int nthreads, const dtype* bottom_data,
   }
 }
 
+
+template <typename dtype>
+__global__ void PoolForwardWithMask(
+    const int nthreads, const dtype* bottom_data,
+    const int height, const int width,
+    const int channels,const int pooled_height,
+    const int pooled_width, dtype* top_data,
+    const int64* mask) {
+  CUDA_1D_KERNEL_LOOP(index, nthreads) {
+    int n = index;
+    
+    n /= channels;
+    n /= pooled_width;
+    n /= pooled_height;
+    
+    const dtype* bottom_data_n = bottom_data + n * height * width * channels;    
+    top_data[index] = bottom_data_n[mask[index]];
+  }
+}
+
+
 template <typename dtype>
 __global__ void MaxPoolBackwardNoMaskNHWC(
     const int nthreads, const dtype* bottom_data, const int height,
@@ -227,12 +248,45 @@ bool MaxPoolForwardWithOptionalArgmax(
     Eigen::half* top_data, int64* mask, const Eigen::GpuDevice& d) {
   const int kThreadsPerBlock = 1024;
   const int output_size = batch * channels * pooled_height * pooled_width;
-
+    
   MaxPoolForwardNHWC<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock,
                        kThreadsPerBlock, 0, d.stream()>>>(
       output_size, bottom_data, height, width, channels, pooled_height,
       pooled_width, kernel_h, kernel_w, stride_h, stride_w, pad_t, pad_l,
       top_data, mask);
+  return d.ok();
+}
+
+
+bool MaskPoolForward(
+    const float* bottom_data, const int batch, const int height,
+    const int width, const int channels, const int pooled_height,
+    const int pooled_width, float* top_data, const int64* mask,
+    const Eigen::GpuDevice& d) {
+    
+  const int kThreadsPerBlock = 1024;
+  const int output_size = batch * channels * pooled_height * pooled_width;
+    
+  PoolForwardWithMask<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock,
+                        kThreadsPerBlock, 0, d.stream()>>>(
+        output_size, bottom_data, height, width, channels, pooled_height,
+        pooled_width, top_data, mask);
+  return d.ok();
+}
+
+bool MaskPoolForward(
+    const Eigen::half* bottom_data, const int batch, const int height,
+    const int width, const int channels, const int pooled_height,
+    const int pooled_width, Eigen::half* top_data, const int64* mask,
+    const Eigen::GpuDevice& d) {
+    
+  const int kThreadsPerBlock = 1024;
+  const int output_size = batch * channels * pooled_height * pooled_width;
+    
+  PoolForwardWithMask<<<(output_size + kThreadsPerBlock - 1) / kThreadsPerBlock,
+                        kThreadsPerBlock, 0, d.stream()>>>(
+        output_size, bottom_data, height, width, channels, pooled_height,
+        pooled_width, top_data, mask);
   return d.ok();
 }
 

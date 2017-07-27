@@ -966,6 +966,58 @@ argmax: The indices of the maximum values chosen for each output of `max_pool`.
 output: Gradients w.r.t. the input of `max_pool`.
 )doc");
 
+
+REGISTER_OP("MaxUnpool")
+    .Attr("ksize: list(int) >= 4")
+    .Attr("strides: list(int) >= 4")
+    .Attr("Targmax: {int32, int64} = DT_INT64")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Input("input: T")
+    .Input("argmax_in: T")
+    .Input("argmax: Targmax")
+    .Output("output: T")
+    .Attr("T: {float, half} = DT_FLOAT")
+    .Doc(R"doc(
+Computes unpooling operation based on the given argmax's. Common usecase
+is to connect maxpooling and maxunpooling operations in encoder decoder
+networks to leverage the spatial information of the maxpooling operation.
+
+ksize: The size of the window for each dimension of the input tensor.
+strides: The stride of the sliding window for each dimension of the
+  input tensor.
+padding: The type of padding algorithm to use.
+input: The input.
+argmax_in: The input of `max_pool`, which caused the argmax's
+argmax: The indices of the maximum values chosen for each output of the corresponding `max_pool`.
+output: The maxunpooled tensor.
+)doc");
+
+REGISTER_OP("MaxUnpoolGrad")
+    .Attr("ksize: list(int) >= 4")
+    .Attr("strides: list(int) >= 4")
+    .Attr("Targmax: {int32, int64} = DT_INT64")
+    .Attr(GetPaddingAttrString())
+    .Attr(GetConvnetDataFormatAttrString())
+    .Input("input: T")
+    .Input("grad_in: T")
+    .Input("argmax_in: T")
+    .Input("argmax: Targmax")
+    .Output("grad_out: T")
+    .Attr("T: {float, half} = DT_FLOAT")
+    .Doc(R"doc(
+Computes the gradient of a maxunpooling operation
+
+ksize: The size of the window for each dimension of the input tensor.
+strides: The stride of the sliding window for each dimension of the
+  input tensor.
+padding: The type of padding algorithm to use.
+input: The orginal input.
+grad_in: Gradients of `max_unpool` w.r.t. the output of `max_unpool`
+argmax: The indices of the maximum values chosen for each output of the corresponding `max_pool`.
+grad_out: Gradients w.r.t. the input of `max_unpool`.
+)doc");
+
 // --------------------------------------------------------------------------
 
 REGISTER_OP("Dilation2D")

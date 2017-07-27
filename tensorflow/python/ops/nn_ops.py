@@ -665,6 +665,38 @@ def max_pool(value, ksize, strides, padding, data_format="NHWC", name=None):
                                 name=name)
 
 
+def max_unpool(value, argmax_value, argmax, ksize, strides, padding, data_format="NHWC", name=None):
+    
+    with ops.op_scope([value, argmax_value, argmax], name, "MaxUnpool") as name:
+        value = ops.convert_to_tensor(value, name="input")
+        argmax_value = ops.convert_to_tensor(argmax_value, name="argmax_in",)
+        argmax = ops.convert_to_tensor(argmax, name="argmax")#, dtype=dtypes.int64)
+        return gen_nn_ops._max_unpool(value,
+                                      argmax_value,
+                                      argmax,
+                                      ksize=ksize,
+                                      strides=strides,
+                                      padding=padding,
+                                      data_format=data_format,
+                                      name=name)
+
+
+@ops.RegisterShape("MaxUnpool")
+def _MaxUnpoolShape(op):
+  """Shape function for MaxUnpool op."""
+  # input 2 is the input of the corresponding maxpooling
+  maxpool_input_shape = op.inputs[1].get_shape().with_rank(4)
+  return [maxpool_input_shape]
+
+@ops.RegisterShape("MaxUnpoolGrad")
+def _MaxUnpoolGradShape(op):
+  """Shape function for MaxUnpoolGrad op."""
+  # input 1 is the actual input of the maxunpooling which is the same in which the gradient results
+  maxunpool_input_shape = op.inputs[0].get_shape().with_rank(4)
+  return [maxunpool_input_shape]
+
+
+
 ops.RegisterShape("Relu")(common_shapes.unchanged_shape)
 ops.RegisterShape("Relu6")(common_shapes.unchanged_shape)
 ops.RegisterShape("Elu")(common_shapes.unchanged_shape)

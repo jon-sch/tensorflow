@@ -361,6 +361,35 @@ def _MaxPoolGrad(op, grad):
                                    data_format=op.get_attr("data_format"))
 
 
+@ops.RegisterGradient("MaxUnpool")
+def _MaxUnpoolGrad(op, grad):
+  # max unpooling operation registration defined in tf/core/kernels/nn_ops.cc
+  # .Input("input: T")
+  # .Input("grad_in: T")
+  # .Input("argmax_in: T")
+  # .Input("argmax: Targmax")
+  # 
+  # we are only interested in the gradient w.r.t. input => return grad, None, None
+  # (see tf/python/framework/ops.py RegisterGradient)
+  return gen_nn_ops._max_unpool_grad(op.inputs[0], # original input
+                                     grad,
+                                     op.inputs[1], # argmax value
+                                     op.inputs[2], # argmax
+                                     op.get_attr("ksize"),
+                                     op.get_attr("strides"),
+                                     padding=op.get_attr("padding"),
+                                     data_format=op.get_attr("data_format")), None, None
+
+@ops.RegisterGradient("MaxPoolWithArgmax")
+def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
+  return gen_nn_ops._max_pool_grad_with_argmax(op.inputs[0],
+                                               grad,
+                                               op.outputs[1],
+                                               op.get_attr("ksize"),
+                                               op.get_attr("strides"),
+                                               padding=op.get_attr("padding"))
+
+
 @ops.RegisterGradient("BatchNormWithGlobalNormalization")
 def _BatchNormWithGlobalNormalizationGrad(op, grad):
   """Return the gradients for the 5 inputs of BatchNormWithGlobalNormalization.
