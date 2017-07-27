@@ -263,7 +263,9 @@ SoftmaxCrossEntropyWithLogits
 SparseSoftmaxCrossEntropyWithLogits
 LRNGrad
 MaxPoolGrad
-MaxPoolGradWithArgmax
+MaxPoolGradWithArgmax+
+Unpool
+UnpoolGrad
 ReluGrad
 Relu6Grad
 EluGrad

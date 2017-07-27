@@ -50,6 +50,7 @@
 @@fractional_avg_pool
 @@fractional_max_pool
 @@pool
+@@unpool
 @@dilation2d
 @@erosion2d
 @@with_space_to_batch
