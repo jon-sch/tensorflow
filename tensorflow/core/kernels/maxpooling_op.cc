@@ -19,8 +19,6 @@ limitations under the License.
 
 #include "tensorflow/core/kernels/maxpooling_op.h"
 
-#include <iostream>
-
 #include <vector>
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/common_runtime/device.h"
@@ -218,8 +216,6 @@ static void SpatialMaxPoolWithArgMaxHelper2(OpKernelContext* context, Tensor* ou
     const int32 out_rows = params.out_height;
     const int32 out_cols = params.out_width;
     
-    std::cout << "range " << start << "-" << limit << std::endl;
-    
     for (int32 i = start; i < limit; ++i) {
       const int32 n = i / depth;
       const int32 c = i % depth;
@@ -247,8 +243,6 @@ static void SpatialMaxPoolWithArgMaxHelper2(OpKernelContext* context, Tensor* ou
           const int32 in_idx = ((n * in_rows + h) * in_cols + w) * depth + c;
           const int32 in_idx_batch = (h * in_cols + w) * depth + c;
           
-          //~ std::cout << "[in] b/h/w/c (idx) " << n << "/" << h << "/" << w << "/" << c << " (" << in_idx << "/" << in_idx_batch << ") " << " on [out] range " << h_start << "-" << h_end << "/" << w_start << "-" << w_end << std::endl;
-          
           for (int32 ph = h_start; ph < h_end; ++ph) {
             const int32 out_idx_base2 = (out_idx_base1 + ph) * out_cols;
             
@@ -258,8 +252,6 @@ static void SpatialMaxPoolWithArgMaxHelper2(OpKernelContext* context, Tensor* ou
               if (data_out[out_idx] < data_in[in_idx]){
                 data_out[out_idx] = data_in[in_idx];
                 mask[out_idx] = in_idx_batch; // store flattened index on batch (not globally flattened)
-                
-                //~ std::cout << "> argmax at " << in_idx_batch << std::endl;
               }
             }
           }
@@ -267,8 +259,6 @@ static void SpatialMaxPoolWithArgMaxHelper2(OpKernelContext* context, Tensor* ou
       }
     }
   };
-  
-  std::cout << "Using " << worker_threads.num_threads  << " threads" << std::endl;
   
   const int64 shard_total = params.tensor_in_batch * params.depth;
   const int64 shard_cost = params.tensor_in_rows * params.tensor_in_cols;
@@ -296,8 +286,6 @@ static void UnpoolingHelper(OpKernelContext* context, Tensor* output, const Tens
     const int32 out_rows = params.out_height;
     const int32 out_cols = params.out_width;
     
-    std::cout << "range " << start << "-" << limit << std::endl;
-    
     // in_rows, in_cols / out_rows, out_cols are inverted here, since we get the (forward) pooling
     // parameters. E.g. the dimensions of the output channels are in_rows x in_cols.
     for (int32 i = start; i < limit; ++i) {
@@ -318,8 +306,6 @@ static void UnpoolingHelper(OpKernelContext* context, Tensor* output, const Tens
         for (int32 w = 0; w < out_cols; ++w) {
           const int32 in_idx = ((n * out_rows + h) * out_cols + w) * depth + c;
           const int32 out_idx = batch_offset + mask[in_idx];
-          
-          //~ std::cout << "[in] b/h/w/c (in_idx) " << n << "/" << h << "/" << w << "/" << c << " (" << in_idx << ") " << " on [out] batch / out_idx " << mask[in_idx] << "/" << out_idx << std::endl;
           
           data_out[out_idx] = data_in[in_idx];
         }
